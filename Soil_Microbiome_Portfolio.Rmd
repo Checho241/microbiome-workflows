@@ -1,0 +1,1774 @@
+---
+title: "Bioinformatics Workflows for Soil and Plant-Associated Microbiome Analysis"
+subtitle: "Portfolio Edition · Reproducible 16S rRNA and ITS Amplicon Data Analysis in R"
+author: "Sergio Pardo-Diaz M.Sc"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    latex_engine: xelatex
+fontsize: 11pt
+geometry: margin=1in
+header-includes:
+  - \usepackage{setspace}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{float}
+  - \usepackage{graphicx}
+  - \usepackage{caption}
+  - \usepackage{enumitem}
+  - \usepackage{xcolor}
+  - \usepackage{titlesec}
+  - \usepackage{fancyhdr}
+  - \captionsetup{font=small}
+  - \setstretch{1.08}
+  - \setlist[itemize]{topsep=3pt,itemsep=2pt,parsep=0pt,partopsep=0pt,leftmargin=18pt}
+  - \setlist[enumerate]{topsep=3pt,itemsep=2pt,parsep=0pt,partopsep=0pt,leftmargin=22pt}
+  - \definecolor{titlecolor}{HTML}{1F3C88}
+  - \definecolor{accentcolor}{HTML}{2A9D8F}
+  - \titleformat{\section}{\Large\bfseries\color{titlecolor}}{\thesection}{0.7em}{}
+  - \titleformat{\subsection}{\large\bfseries\color{accentcolor}}{\thesubsection}{0.6em}{}
+  - \pagestyle{fancy}
+  - \fancyhf{}
+  - \fancyfoot[C]{\thepage}
+params:
+  state_var: "Plant_Condition"
+
+  filtering_subdir: "01_Filtering_ASVs"
+  analysis_subdir: "02_Analysis"
+
+  top_n: 10
+  tax_levels: ["Phylum", "Class", "Order"]
+  dpi_png: 300
+
+  min_depth_16S: 1000
+  rarefaction_16S: 5000
+  min_depth_ITS: 1000
+  rarefaction_ITS: 3000
+
+  feature_16S: "table.qza"
+  taxonomy_16S: "taxonomy.qza"
+  tree_16S: "rooted-tree.qza"
+  metadata_16S: "Metadata.tsv"
+
+  feature_ITS: "table.qza"
+  taxonomy_ITS: "taxonomy.qza"
+  tree_ITS: "rooted-tree.qza"
+  metadata_ITS: "Metadata.tsv"
+
+  in_caldas_16S_dir: "Nuevo_Suelo/Caldas_Suelo/16s"
+  in_risaralda_16S_dir: "Nuevo_Suelo/Risaralda_Suelo/16s"
+  in_caldas_ITS_dir: "Nuevo_Suelo/Caldas_Suelo/its"
+  in_risaralda_ITS_dir: "Nuevo_Suelo/Risaralda_Suelo/its"
+
+  out_root_16S: "Nuevo_Suelo/Bacterias"
+  out_root_ITS: "Nuevo_Suelo/ITS"
+
+  in_plant_16S_dir: "Nuevo_Planta/16s"
+  in_plant_ITS_dir: "Nuevo_Planta/its"
+  out_root_plant_16S: "Nuevo_Planta/Bacterias"
+  out_root_plant_ITS: "Nuevo_Planta/Hongos"
+
+  da_out_root_16S: "Nuevo_Endofito/Bacterias"
+  da_tax_level: "Genus"
+  da_alpha: 0.05
+  da_p_adjust: "fdr"
+  da_top_n_plot: 12
+---
+
+# Executive Summary
+
+This portfolio report showcases an end-to-end analytical framework for microbiome profiling using 16S rRNA and ITS amplicon sequencing data. The workflow was designed to demonstrate skills relevant to research, applied bioinformatics, data science consulting, and scientific reporting.
+
+The framework integrates reproducible data ingestion from QIIME2 outputs, ASV filtering, alpha and beta diversity analyses, compositional profiling, differential abundance testing, and publication-ready figure generation in R. Beyond the biological results, the document highlights practical strengths valued in professional settings: modular code structure, parameterized analyses, reproducibility, data quality control, and exportable deliverables for collaborators and decision-makers.
+
+# Professional Value Proposition
+
+This project demonstrates the ability to:
+
+- Build reproducible microbiome analysis pipelines in R.
+- Convert raw QIIME2-derived objects into analysis-ready phyloseq workflows.
+- Apply ecological statistics for alpha diversity, beta diversity, and differential abundance.
+- Produce publication-quality visualizations and portfolio-ready outputs.
+- Structure code and reports for collaborative science, consulting, and technical communication.
+
+# Overview
+
+This report presents a reproducible bioinformatics framework for microbiome analysis across soil and plant-associated microbial communities using 16S rRNA and ITS amplicon sequencing data. The workflow integrates preprocessing, ASV filtering, alpha diversity, beta diversity, relative abundance profiling, and publication-ready visualization.
+
+The analysis is designed as a publication-oriented and portfolio-ready framework that combines reproducible data processing, ecological statistics, and scientific visualization. It generates standardized phyloseq objects, statistical tables, and publication-quality figures suitable for downstream interpretation, scientific reporting, and consulting-oriented deliverables.
+
+# Computational Environment
+
+All analyses were performed using R and QIIME2-derived datasets on a macOS environment.
+
+Core tools used in this workflow include:
+
+- QIIME2
+- qiime2R
+- phyloseq
+- vegan
+- tidyverse
+- microbiome
+- patchwork
+- openxlsx
+- rstatix
+- ggplot2
+
+# Objectives
+
+The main objectives of this workflow are:
+
+- To preprocess and filter ASV tables from soil and plant-associated microbiome datasets.
+- To standardize bacterial and fungal datasets for downstream ecological analyses.
+- To evaluate alpha diversity patterns across biological conditions and sample groups.
+- To assess beta diversity and community structure using ordination and PERMANOVA.
+- To generate relative abundance profiles and publication-ready figures.
+- To provide a reproducible analytical framework suitable for research, reporting, and technical consulting.
+
+# Study Design
+
+This workflow includes:
+
+- Soil bacterial communities analyzed using 16S rRNA amplicon data.
+- Soil fungal communities analyzed using ITS amplicon data.
+- Plant-associated bacterial and/or endophytic communities analyzed using comparable preprocessing and diversity analysis strategies.
+- Comparative analyses across regions, compartments, and plant health conditions.
+
+# Workflow Structure
+
+This report is organized into the following analytical components:
+
+1. Dataset configuration
+2. Shared helper functions
+3. ASV filtering and preprocessing
+4. Alpha diversity analysis
+5. Beta diversity analysis
+6. Relative abundance profiling
+7. Differential abundance analysis
+8. Final exported deliverables
+
+```{r portfolio_pipeline, echo=TRUE, warning=FALSE, message=FALSE}
+# ============================================================
+# 0) SETUP
+# ============================================================
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 8,
+  fig.height = 5,
+  dpi = 300
+)
+
+required_pkgs <- c(
+  "tidyverse", "phyloseq", "qiime2R", "vegan", "ape", "glue", "readr",
+  "rlang", "openxlsx", "broom", "patchwork", "rstatix", "microbiome",
+  "fs", "stringr", "scales", "forcats", "cowplot", "grid", "knitr",
+  "tibble"
+)
+
+missing_pkgs <- required_pkgs[
+  !vapply(required_pkgs, requireNamespace, logical(1), quietly = TRUE)
+]
+
+if (length(missing_pkgs) > 0) {
+  stop(
+    "Missing packages: ",
+    paste(missing_pkgs, collapse = ", "),
+    ". Install them before rendering."
+  )
+}
+
+suppressPackageStartupMessages(
+  invisible(lapply(required_pkgs, library, character.only = TRUE))
+)
+
+proj_dir  <- getwd()
+state_var <- params$state_var
+theme_set(theme_bw(base_size = 12))
+
+safe_bind_rows <- function(x) {
+  x <- x[!vapply(x, is.null, logical(1))]
+  if (length(x) == 0) return(tibble::tibble())
+  dplyr::bind_rows(x)
+}
+
+safe_save_plot <- function(filename, plot_obj, width = 7, height = 5, dpi = 300) {
+  if (inherits(plot_obj, "ggplot")) {
+    ggplot2::ggsave(filename, plot_obj, width = width, height = height, dpi = dpi)
+  }
+}
+
+safe_group_count <- function(x) {
+  dplyr::n_distinct(stats::na.omit(x))
+}
+
+safe_lm_pvalue <- function(df, response, group_var) {
+  df2 <- df %>%
+    dplyr::filter(!is.na(.data[[response]]), !is.na(.data[[group_var]])) %>%
+    dplyr::mutate(.group = droplevels(as.factor(.data[[group_var]])))
+
+  if (nrow(df2) < 3) return(NA_real_)
+  if (safe_group_count(df2$.group) < 2) return(NA_real_)
+
+  fml <- stats::as.formula(paste(response, "~ .group"))
+  fit <- tryCatch(stats::lm(fml, data = df2), error = function(e) NULL)
+  if (is.null(fit)) return(NA_real_)
+
+  an <- tryCatch(stats::anova(fit), error = function(e) NULL)
+  if (is.null(an)) return(NA_real_)
+
+  p <- an$`Pr(>F)`[1]
+  if (length(p) == 0) return(NA_real_)
+  as.numeric(p)
+}
+
+# ============================================================
+# 1) DATASET CONFIGURATION
+# ============================================================
+datasets <- tibble::tribble(
+  ~dataset_name,       ~system, ~Region,      ~Marker, ~Domain,    ~input_dir,                       ~feature_file,      ~taxonomy_file,      ~tree_file,       ~metadata_file,      ~target_kingdom, ~min_depth,            ~rarefaction_depth,        ~out_root_base,
+  "Caldas_16S",        "Soil",  "Caldas",     "16S",   "Bacteria", params$in_caldas_16S_dir,        params$feature_16S, params$taxonomy_16S, params$tree_16S,  params$metadata_16S, "Bacteria",      params$min_depth_16S, params$rarefaction_16S, params$out_root_16S,
+  "Risaralda_16S",     "Soil",  "Risaralda",  "16S",   "Bacteria", params$in_risaralda_16S_dir,     params$feature_16S, params$taxonomy_16S, params$tree_16S,  params$metadata_16S, "Bacteria",      params$min_depth_16S, params$rarefaction_16S, params$out_root_16S,
+  "Caldas_ITS",        "Soil",  "Caldas",     "ITS",   "Fungi",    params$in_caldas_ITS_dir,        params$feature_ITS, params$taxonomy_ITS, params$tree_ITS,  params$metadata_ITS, "Fungi",         params$min_depth_ITS, params$rarefaction_ITS, params$out_root_ITS,
+  "Risaralda_ITS",     "Soil",  "Risaralda",  "ITS",   "Fungi",    params$in_risaralda_ITS_dir,     params$feature_ITS, params$taxonomy_ITS, params$tree_ITS,  params$metadata_ITS, "Fungi",         params$min_depth_ITS, params$rarefaction_ITS, params$out_root_ITS,
+  "Plant_Bacteria_1",  "Plant", "PlantGroup", "16S",   "Bacteria", params$in_plant_16S_dir,         params$feature_16S, params$taxonomy_16S, params$tree_16S,  params$metadata_16S, "Bacteria",      params$min_depth_16S, params$rarefaction_16S, params$out_root_plant_16S,
+  "Plant_Fungi_1",     "Plant", "PlantGroup", "ITS",   "Fungi",    params$in_plant_ITS_dir,         params$feature_ITS, params$taxonomy_ITS, params$tree_ITS,  params$metadata_ITS, "Fungi",         params$min_depth_ITS, params$rarefaction_ITS, params$out_root_plant_ITS
+)
+
+datasets
+
+# ============================================================
+# 2) SHARED HELPERS
+# ============================================================
+make_outdirs <- function(ds_row, subdir_main) {
+  outdir_root <- file.path(proj_dir, ds_row$out_root_base, ds_row$dataset_name, subdir_main)
+  dir.create(outdir_root, recursive = TRUE, showWarnings = FALSE)
+  for (sd in c("RDS", "Figures", "Tables", "QC", "Logs")) {
+    dir.create(file.path(outdir_root, sd), recursive = TRUE, showWarnings = FALSE)
+  }
+  outdir_root
+}
+
+detect_sample_id_col <- function(meta_df) {
+  id_candidates <- c("SampleID", "#SampleID", "sampleid", "sample_id", "sample-id")
+  id_col <- id_candidates[id_candidates %in% colnames(meta_df)]
+  if (length(id_col) == 0) stop("No sample ID column found in metadata.")
+  id_col[1]
+}
+
+harmonize_state_var <- function(meta, state_var = "Plant_Condition") {
+  meta <- as.data.frame(meta)
+
+  if (state_var %in% names(meta)) {
+    base <- meta[[state_var]]
+  } else {
+    candidates <- c("Health_Plant", "Condition_Plant", "Condition", "Condicion", "State", "Status")
+    cand <- intersect(candidates, names(meta))
+    if (length(cand) == 0) {
+      meta[[state_var]] <- NA_character_
+      meta[[state_var]] <- factor(meta[[state_var]], levels = c("Healthy_Plant", "Diseased_Plant"))
+      return(meta)
+    }
+    base <- meta[[cand[1]]]
+  }
+
+  clean <- base %>%
+    as.character() %>%
+    stringr::str_trim() %>%
+    stringr::str_to_lower()
+
+  meta[[state_var]] <- dplyr::case_when(
+    clean %in% c("healthy_plant", "healthy plant", "healthy", "h", "sana", "sano") ~ "Healthy_Plant",
+    clean %in% c("diseased_plant", "diseased plant", "diseased", "d", "enferma", "enfermo") ~ "Diseased_Plant",
+    TRUE ~ NA_character_
+  )
+
+  meta[[state_var]] <- factor(meta[[state_var]], levels = c("Healthy_Plant", "Diseased_Plant"))
+  meta
+}
+
+clean_tax_string <- function(x) {
+  x <- as.character(x)
+  x[x == "" | toupper(x) == "NA"] <- NA
+  x <- trimws(x)
+  x <- gsub("\\s+", "_", x)
+  x <- gsub("^[a-z]__", "", x)
+  x
+}
+
+is_alphanumeric_code <- function(x) {
+  x <- as.character(x)
+  x <- trimws(x)
+  if (is.na(x) || x == "") return(FALSE)
+  if (!grepl("^[A-Za-z0-9._-]+$", x)) return(FALSE)
+  if (!grepl("[0-9]", x)) return(FALSE)
+  n_total <- nchar(x)
+  n_dig <- nchar(gsub("[^0-9]", "", x))
+  prop_d <- ifelse(n_total > 0, n_dig / n_total, 0)
+  ends_digit_block <- grepl("[0-9]{2,}$", x)
+  prop_d >= 0.4 || ends_digit_block
+}
+
+normalize_tax_label_strict <- function(x) {
+  x <- as.character(x)
+
+  vapply(x, function(z) {
+    if (is.na(z) || z == "") return(NA_character_)
+
+    z <- trimws(z)
+
+    z <- gsub("begin:math:display|end:math:display|begin:math:text|end:math:text", "", z)
+    z <- gsub("\\$", "", z)
+    z <- gsub("\\[|\\]|\\(|\\)", "", z)
+    z <- gsub("\\s+", "_", z)
+    z <- gsub("[-.]", "_", z)
+
+    parts <- unlist(strsplit(z, "_"))
+    parts <- parts[parts != ""]
+
+    parts_clean <- parts[!(
+      parts %in% c("A", "B", "C", "D", "E", "I", "II", "III", "IV", "V") |
+        grepl("^[0-9]+$", parts)
+    )]
+
+    if (!length(parts_clean)) parts_clean <- parts[1]
+
+    tolower(parts_clean[1])
+  }, character(1))
+}
+
+process_tax_labels <- function(x, level = "Genus") {
+  nm <- clean_tax_string(x)
+  bad_pat <- paste(
+    "incertae", "sedis", "unclassified", "uncultured",
+    "unknown", "unassigned", "metagenome", "ambiguous",
+    "norank", "no_rank", "unidentified",
+    sep = "|"
+  )
+  nm[grepl(bad_pat, nm, ignore.case = TRUE)] <- NA
+  nm[vapply(nm, is_alphanumeric_code, logical(1))] <- NA
+  normalize_tax_label_strict(nm)
+}
+
+check_dataset_files <- function(ds_row) {
+  feature_path <- file.path(proj_dir, ds_row$input_dir, ds_row$feature_file)
+  tax_path     <- file.path(proj_dir, ds_row$input_dir, ds_row$taxonomy_file)
+  tree_path    <- file.path(proj_dir, ds_row$input_dir, ds_row$tree_file)
+  meta_path    <- file.path(proj_dir, ds_row$input_dir, ds_row$metadata_file)
+
+  tibble::tibble(
+    dataset_name = ds_row$dataset_name,
+    feature_path = feature_path,
+    taxonomy_path = tax_path,
+    tree_path = tree_path,
+    metadata_path = meta_path,
+    feature_exists = file.exists(feature_path),
+    taxonomy_exists = file.exists(tax_path),
+    tree_exists = file.exists(tree_path),
+    metadata_exists = file.exists(meta_path)
+  )
+}
+
+load_qiime_phyloseq <- function(ds_row) {
+  feature_path <- file.path(proj_dir, ds_row$input_dir, ds_row$feature_file)
+  tax_path     <- file.path(proj_dir, ds_row$input_dir, ds_row$taxonomy_file)
+  tree_path    <- file.path(proj_dir, ds_row$input_dir, ds_row$tree_file)
+  meta_path    <- file.path(proj_dir, ds_row$input_dir, ds_row$metadata_file)
+
+  if (!file.exists(feature_path)) stop("Feature table not found: ", feature_path)
+  if (!file.exists(tax_path)) stop("Taxonomy file not found: ", tax_path)
+  if (!file.exists(meta_path)) stop("Metadata file not found: ", meta_path)
+
+  tbl_qza     <- qiime2R::read_qza(feature_path)
+  feature_mat <- tbl_qza$data
+
+  tax_qza <- qiime2R::read_qza(tax_path)
+  tax_tbl <- tax_qza$data
+
+  meta_df <- readr::read_tsv(meta_path, col_types = readr::cols())
+  id_col <- detect_sample_id_col(meta_df)
+
+  meta_df <- meta_df %>%
+    dplyr::rename(SampleID = !!rlang::sym(id_col)) %>%
+    dplyr::mutate(SampleID = as.character(SampleID)) %>%
+    tibble::column_to_rownames("SampleID")
+
+  meta_df <- harmonize_state_var(meta_df, state_var = state_var)
+
+  common_samples <- intersect(rownames(meta_df), colnames(feature_mat))
+  if (length(common_samples) == 0) {
+    stop(glue::glue("No matching samples for {ds_row$dataset_name}."))
+  }
+
+  feature_mat <- feature_mat[, common_samples, drop = FALSE]
+  meta_df     <- meta_df[common_samples, , drop = FALSE]
+
+  tax_df <- tax_tbl %>%
+    tibble::as_tibble() %>%
+    dplyr::rename(ASV = Feature.ID) %>%
+    tidyr::separate(
+      col = Taxon,
+      into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
+      sep = ";",
+      fill = "right",
+      remove = FALSE
+    ) %>%
+    dplyr::mutate(dplyr::across(Kingdom:Species, ~ stringr::str_trim(as.character(.))))
+
+  tax_mat <- tax_df %>%
+    dplyr::select(ASV, Kingdom:Species) %>%
+    tibble::column_to_rownames("ASV") %>%
+    as.matrix()
+
+  common_asvs <- intersect(rownames(tax_mat), rownames(feature_mat))
+  if (length(common_asvs) == 0) {
+    stop(glue::glue("No matching ASVs for {ds_row$dataset_name}."))
+  }
+
+  tax_mat     <- tax_mat[common_asvs, , drop = FALSE]
+  feature_mat <- feature_mat[common_asvs, , drop = FALSE]
+
+  phy_tree_obj <- NULL
+  if (file.exists(tree_path)) {
+    phy_tree_obj <- qiime2R::read_qza(tree_path)$data
+  }
+
+  if (!is.null(phy_tree_obj)) {
+    phyloseq::phyloseq(
+      phyloseq::otu_table(feature_mat, taxa_are_rows = TRUE),
+      phyloseq::tax_table(tax_mat),
+      phyloseq::sample_data(meta_df),
+      phyloseq::phy_tree(phy_tree_obj)
+    )
+  } else {
+    phyloseq::phyloseq(
+      phyloseq::otu_table(feature_mat, taxa_are_rows = TRUE),
+      phyloseq::tax_table(tax_mat),
+      phyloseq::sample_data(meta_df)
+    )
+  }
+}
+
+filter_taxa_by_domain <- function(ps, target_kingdom) {
+  tax_tab <- as.data.frame(phyloseq::tax_table(ps))
+
+  if (target_kingdom == "Bacteria") {
+    keep_taxa_idx <- with(
+      tax_tab,
+      Kingdom == "Bacteria" &
+        (is.na(Order)  | Order  != "Chloroplast") &
+        (is.na(Family) | Family != "Mitochondria") &
+        !(is.na(Phylum) | Phylum == "" | Phylum == "Unassigned")
+    )
+  } else if (target_kingdom == "Fungi") {
+    keep_taxa_idx <- with(
+      tax_tab,
+      Kingdom == "Fungi" &
+        !(is.na(Phylum) | Phylum == "" | Phylum == "Unassigned")
+    )
+  } else {
+    keep_taxa_idx <- rep(TRUE, nrow(tax_tab))
+  }
+
+  keep_taxa_idx[is.na(keep_taxa_idx)] <- FALSE
+  if (sum(keep_taxa_idx) == 0) return(ps)
+  phyloseq::prune_taxa(keep_taxa_idx, ps)
+}
+
+load_ps_object <- function(ds_row, object_name = "ps_rarefied") {
+  path_obj <- file.path(
+    proj_dir,
+    ds_row$out_root_base,
+    ds_row$dataset_name,
+    params$filtering_subdir,
+    "RDS",
+    glue::glue("{object_name}_{ds_row$dataset_name}.rds")
+  )
+  if (!file.exists(path_obj)) return(NULL)
+  readRDS(path_obj)
+}
+
+pcoa_df_local <- function(dist_obj, meta_df) {
+  pc <- ape::pcoa(dist_obj)
+  scores <- as.data.frame(pc$vectors[, 1:2, drop = FALSE])
+  colnames(scores) <- c("PCoA1", "PCoA2")
+  samps <- rownames(scores)
+  meta_df2 <- as.data.frame(meta_df)[samps, , drop = FALSE]
+  df <- cbind(scores, meta_df2)
+  df$SampleID <- samps
+  var1 <- round(pc$values$Relative_eig[1] * 100, 2)
+  var2 <- round(pc$values$Relative_eig[2] * 100, 2)
+  list(df = df, var1 = var1, var2 = var2)
+}
+
+make_dist <- function(ps, method = c("bray", "jaccard", "unifrac_unweighted", "unifrac_weighted"), gene_type = c("16S", "ITS")) {
+  method <- match.arg(method)
+  gene_type <- match.arg(gene_type)
+
+  if (method == "bray") {
+    return(phyloseq::distance(ps, method = "bray"))
+  }
+
+  if (method == "jaccard") {
+    return(phyloseq::distance(ps, method = "jaccard", binary = TRUE))
+  }
+
+  if (gene_type == "16S" && method %in% c("unifrac_unweighted", "unifrac_weighted")) {
+    if (is.null(phyloseq::phy_tree(ps, errorIfNULL = FALSE))) {
+      stop("No phylogenetic tree available.")
+    }
+
+    if (method == "unifrac_unweighted") {
+      return(
+        phyloseq::UniFrac(
+          ps,
+          weighted = FALSE,
+          normalized = TRUE,
+          parallel = FALSE,
+          fast = TRUE
+        )
+      )
+    }
+
+    return(
+      phyloseq::UniFrac(
+        ps,
+        weighted = TRUE,
+        normalized = TRUE,
+        parallel = FALSE,
+        fast = TRUE
+      )
+    )
+  }
+
+  stop(glue::glue("Unsupported method {method} for gene_type {gene_type}."))
+}
+
+run_permanova <- function(dist_obj, meta_df, state_var, nperm = 999) {
+  meta_df <- as.data.frame(meta_df)
+  df_use <- data.frame(group = droplevels(as.factor(meta_df[[state_var]])))
+
+  if (nrow(df_use) < 3) return(NULL)
+  if (safe_group_count(df_use$group) < 2) return(NULL)
+
+  tryCatch(
+    vegan::adonis2(dist_obj ~ group, data = df_use, permutations = nperm, by = "margin"),
+    error = function(e) NULL
+  )
+}
+
+run_betadisper <- function(dist_obj, group_vec) {
+  grp <- droplevels(as.factor(group_vec))
+
+  if (length(grp) < 3) return(NULL)
+  if (safe_group_count(grp) < 2) return(NULL)
+
+  bd <- tryCatch(vegan::betadisper(dist_obj, group = grp), error = function(e) NULL)
+  if (is.null(bd)) return(NULL)
+
+  list(
+    anova = tryCatch(anova(bd), error = function(e) NULL),
+    tukey = tryCatch(TukeyHSD(bd), error = function(e) NULL),
+    model = bd
+  )
+}
+
+palette_sobria_11 <- c(
+  "#4C566A", "#5E81AC", "#D08770", "#A3BE8C", "#88C0D0",
+  "#BF616A", "#EBCB8B", "#81A1C1", "#636E75", "#8FBCBB",
+  "#B0B0B0"
+)
+
+theme_pub <- function(base_size = 11) {
+  ggplot2::theme_bw(base_size = base_size) +
+    ggplot2::theme(
+      panel.grid.minor = ggplot2::element_blank(),
+      axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5),
+      plot.title = ggplot2::element_text(face = "bold", hjust = 0.5),
+      legend.key.size = grid::unit(0.45, "cm")
+    )
+}
+
+global_taxon_colors <- list()
+
+get_global_palette <- function(marker, level, taxa_vec) {
+  key <- paste(marker, level, sep = "__")
+  if (is.null(global_taxon_colors[[key]])) global_taxon_colors[[key]] <<- character(0)
+  reg <- global_taxon_colors[[key]]
+
+  taxa_main <- setdiff(taxa_vec, "Others")
+  missing <- setdiff(taxa_main, names(reg))
+
+  if (length(missing)) {
+    base_cols <- palette_sobria_11[palette_sobria_11 != "#B0B0B0"]
+    used_cols <- unname(reg)
+    avail_cols <- setdiff(base_cols, used_cols)
+
+    if (length(avail_cols) < length(missing)) {
+      avail_cols <- rep(base_cols, length.out = length(missing))
+    }
+
+    new_cols <- avail_cols[seq_len(length(missing))]
+    names(new_cols) <- missing
+    reg <- c(reg, new_cols)
+  }
+
+  if ("Others" %in% taxa_vec) reg["Others"] <- "#B0B0B0"
+  global_taxon_colors[[key]] <<- reg
+  reg[taxa_vec]
+}
+
+# ============================================================
+# 3) ASV FILTERING AND PREPROCESSING
+# ============================================================
+file_check_tbl <- purrr::map_dfr(seq_len(nrow(datasets)), ~ check_dataset_files(datasets[.x, ]))
+file_check_tbl
+
+valid_datasets <- file_check_tbl %>%
+  dplyr::filter(feature_exists, taxonomy_exists, metadata_exists) %>%
+  dplyr::pull(dataset_name)
+
+datasets_valid <- datasets %>%
+  dplyr::filter(dataset_name %in% valid_datasets)
+
+if (nrow(datasets_valid) == 0) {
+  filtering_summaries <- tibble::tibble(
+    Status = "Input files were not found from the current working directory.",
+    Recommendation = "Update YAML input paths or set proj_dir to the project root."
+  )
+} else {
+  filtering_summaries <- purrr::map(
+    seq_len(nrow(datasets_valid)),
+    function(i) {
+      ds <- datasets_valid[i, ]
+      tryCatch(
+        process_dataset(ds),
+        error = function(e) {
+          message("Skipping dataset ", ds$dataset_name, ": ", e$message)
+          NULL
+        }
+      )
+    }
+  ) %>% safe_bind_rows()
+}
+
+process_dataset <- function(ds_row) {
+  outdir_root <- make_outdirs(ds_row, params$filtering_subdir)
+  ps_raw <- load_qiime_phyloseq(ds_row)
+
+  depth_df <- tibble::tibble(
+    SampleID = phyloseq::sample_names(ps_raw),
+    Reads = as.numeric(phyloseq::sample_sums(ps_raw))
+  )
+
+  p_depth <- ggplot2::ggplot(depth_df, ggplot2::aes(x = Reads)) +
+    ggplot2::geom_histogram(bins = 30) +
+    ggplot2::geom_vline(xintercept = ds_row$min_depth, linetype = "dashed") +
+    ggplot2::labs(
+      title = glue::glue("Read depth distribution - {ds_row$dataset_name}"),
+      x = "Reads per sample",
+      y = "Frequency"
+    ) +
+    ggplot2::theme_bw()
+
+  safe_save_plot(
+    file.path(outdir_root, "Figures", glue::glue("DepthHistogram_{ds_row$dataset_name}.png")),
+    p_depth
+  )
+
+  keep_samples <- depth_df %>%
+    dplyr::filter(Reads >= ds_row$min_depth) %>%
+    dplyr::pull(SampleID)
+
+  ps_filt_samples <- if (length(keep_samples) == 0) {
+    ps_raw
+  } else {
+    phyloseq::prune_samples(keep_samples, ps_raw)
+  }
+
+  if (phyloseq::nsamples(ps_filt_samples) == 0) {
+    stop(glue::glue("No samples left after depth filtering for {ds_row$dataset_name}."))
+  }
+
+  ps_filt <- filter_taxa_by_domain(ps_filt_samples, ds_row$target_kingdom)
+
+  if (phyloseq::ntaxa(ps_filt) == 0) {
+    stop(glue::glue("No taxa left after taxonomic filtering for {ds_row$dataset_name}."))
+  }
+
+  ps_counts <- ps_filt
+  rare_depth_use <- min(ds_row$rarefaction_depth, min(phyloseq::sample_sums(ps_filt)))
+
+  ps_rarefied <- tryCatch(
+    phyloseq::rarefy_even_depth(
+      ps_filt,
+      sample.size = rare_depth_use,
+      rngseed = 123,
+      replace = FALSE,
+      verbose = TRUE
+    ),
+    error = function(e) ps_filt
+  )
+
+  ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x / sum(x))
+
+  summary_tbl <- tibble::tibble(
+    Dataset = ds_row$dataset_name,
+    System = ds_row$system,
+    Region = ds_row$Region,
+    Marker = ds_row$Marker,
+    Domain = ds_row$Domain,
+    ASV_initial = phyloseq::ntaxa(ps_raw),
+    ASV_post_samples = phyloseq::ntaxa(ps_filt_samples),
+    ASV_post_taxonomy = phyloseq::ntaxa(ps_filt),
+    Samples_initial = phyloseq::nsamples(ps_raw),
+    Samples_filtered = phyloseq::nsamples(ps_filt),
+    Min_depth = ds_row$min_depth,
+    Rarefaction_depth = ds_row$rarefaction_depth,
+    Rarefaction_used = rare_depth_use
+  )
+
+  saveRDS(summary_tbl, file.path(outdir_root, "QC", glue::glue("filtering_summary_{ds_row$dataset_name}.rds")))
+  readr::write_csv(summary_tbl, file.path(outdir_root, "QC", glue::glue("filtering_summary_{ds_row$dataset_name}.csv")))
+
+  saveRDS(ps_counts,   file.path(outdir_root, "RDS", glue::glue("ps_counts_{ds_row$dataset_name}.rds")))
+  saveRDS(ps_rarefied, file.path(outdir_root, "RDS", glue::glue("ps_rarefied_{ds_row$dataset_name}.rds")))
+  saveRDS(ps_rel,      file.path(outdir_root, "RDS", glue::glue("ps_rel_{ds_row$dataset_name}.rds")))
+
+  summary_tbl
+}
+
+filtering_summaries <- purrr::map(
+  seq_len(nrow(datasets_valid)),
+  function(i) {
+    ds <- datasets_valid[i, ]
+    tryCatch(
+      process_dataset(ds),
+      error = function(e) {
+        message("Skipping dataset ", ds$dataset_name, ": ", e$message)
+        NULL
+      }
+    )
+  }
+) %>%
+  safe_bind_rows()
+
+filtering_summaries
+
+if (nrow(filtering_summaries) > 0) {
+  readr::write_csv(
+    filtering_summaries,
+    file.path(proj_dir, "Summary_Filtering_All_Microbiome_Datasets.csv")
+  )
+}
+
+# ============================================================
+# 4) ALPHA DIVERSITY ANALYSIS
+# ============================================================
+analysis_info <- purrr::map(seq_len(nrow(datasets_valid)), function(i) {
+  ds_row <- datasets_valid[i, ]
+  out_root <- make_outdirs(ds_row, params$analysis_subdir)
+  ps_rar <- load_ps_object(ds_row, "ps_rarefied")
+  if (is.null(ps_rar)) return(NULL)
+
+  list(
+    meta = ds_row,
+    out_root = out_root,
+    ps_rarefied = ps_rar
+  )
+})
+
+names(analysis_info) <- datasets_valid$dataset_name
+analysis_info <- analysis_info[!vapply(analysis_info, is.null, logical(1))]
+
+alpha_all <- purrr::map(names(analysis_info), function(nm) {
+  info <- analysis_info[[nm]]
+  ps <- info$ps_rarefied
+
+  alpha <- phyloseq::estimate_richness(ps, measures = c("Observed", "Shannon", "Chao1"))
+  sd <- data.frame(phyloseq::sample_data(ps), stringsAsFactors = FALSE)
+
+  df <- cbind(alpha, sd)
+  df$SampleID <- rownames(alpha)
+  df$Dataset <- nm
+  df$System <- info$meta$system
+  df$Region <- info$meta$Region
+  df$Marker <- info$meta$Marker
+  df$Domain <- info$meta$Domain
+  df
+}) %>%
+  safe_bind_rows()
+
+if (nrow(alpha_all) > 0 && "Plant_Condition" %in% colnames(alpha_all)) {
+  alpha_all <- alpha_all %>%
+    dplyr::mutate(
+      Plant_Condition_raw = as.character(Plant_Condition),
+      Plant_Condition_clean = Plant_Condition_raw %>%
+        stringr::str_trim() %>%
+        stringr::str_to_lower(),
+      Plant_Condition = dplyr::case_when(
+        stringr::str_detect(Plant_Condition_clean, "healthy|sana|sano") ~ "Healthy_Plant",
+        stringr::str_detect(Plant_Condition_clean, "diseased|enferma|enfermo") ~ "Diseased_Plant",
+        TRUE ~ NA_character_
+      ),
+      Plant_Condition = factor(
+        Plant_Condition,
+        levels = c("Healthy_Plant", "Diseased_Plant")
+      )
+    ) %>%
+    dplyr::select(-Plant_Condition_raw, -Plant_Condition_clean)
+}
+
+if (nrow(alpha_all) > 0 && "Plant_Condition" %in% colnames(alpha_all)) {
+  alpha_all %>% dplyr::count(System, Dataset, Plant_Condition)
+}
+
+col_PC <- c("Diseased_Plant" = "#F8766D", "Healthy_Plant" = "#00BFC4")
+plots_alpha_shannon_ds <- list()
+plots_alpha_chao_ds <- list()
+alpha_stats_all <- list()
+
+if (nrow(alpha_all) > 0 && "Plant_Condition" %in% colnames(alpha_all)) {
+  for (nm in unique(alpha_all$Dataset)) {
+    df <- alpha_all %>%
+      dplyr::filter(Dataset == nm, !is.na(Plant_Condition))
+
+    if (nrow(df) == 0) next
+    if (safe_group_count(df$Plant_Condition) < 2) next
+
+    region_lab <- unique(df$Region)[1]
+    marker_lab <- unique(df$Marker)[1]
+    system_lab <- unique(df$System)[1]
+
+    pval_sh <- safe_lm_pvalue(df, "Shannon", "Plant_Condition")
+    pval_ch <- safe_lm_pvalue(df, "Chao1", "Plant_Condition")
+
+    sig_sh <- ifelse(is.na(pval_sh), "NA", ifelse(pval_sh < 0.05, "**", "NS"))
+    sig_ch <- ifelse(is.na(pval_ch), "NA", ifelse(pval_ch < 0.05, "**", "NS"))
+
+    fit_sh <- tryCatch(stats::lm(Shannon ~ Plant_Condition, data = df), error = function(e) NULL)
+    fit_ch <- tryCatch(stats::lm(Chao1 ~ Plant_Condition, data = df), error = function(e) NULL)
+
+    if (!is.null(fit_sh)) {
+      alpha_stats_all[[paste0(nm, "_Shannon")]] <- broom::tidy(stats::anova(fit_sh)) %>%
+        dplyr::mutate(Dataset = nm, Index = "Shannon")
+    }
+
+    if (!is.null(fit_ch)) {
+      alpha_stats_all[[paste0(nm, "_Chao1")]] <- broom::tidy(stats::anova(fit_ch)) %>%
+        dplyr::mutate(Dataset = nm, Index = "Chao1")
+    }
+
+    ymax_sh <- max(df$Shannon, na.rm = TRUE)
+    ymax_ch <- max(df$Chao1, na.rm = TRUE)
+
+    p_sh <- ggplot2::ggplot(df, ggplot2::aes(x = Plant_Condition, y = Shannon, fill = Plant_Condition)) +
+      ggplot2::geom_boxplot(alpha = 0.8, outlier.shape = NA) +
+      ggplot2::geom_jitter(
+        ggplot2::aes(color = Plant_Condition),
+        width = 0.15,
+        size = 2,
+        alpha = 0.7,
+        show.legend = FALSE
+      ) +
+      ggplot2::scale_fill_manual(values = col_PC, drop = FALSE) +
+      ggplot2::scale_color_manual(values = col_PC, drop = FALSE) +
+      ggplot2::annotate("text", x = 1.5, y = ymax_sh * 1.05, label = sig_sh, size = 6) +
+      ggplot2::labs(
+        title = glue::glue("Alpha diversity - Shannon index ({system_lab}, {region_lab}, {marker_lab})"),
+        x = "Plant condition",
+        y = "Shannon index"
+      ) +
+      ggplot2::theme_bw(base_size = 12) +
+      ggplot2::theme(
+        axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+        legend.position = "none"
+      )
+
+    p_ch <- ggplot2::ggplot(df, ggplot2::aes(x = Plant_Condition, y = Chao1, fill = Plant_Condition)) +
+      ggplot2::geom_boxplot(alpha = 0.8, outlier.shape = NA) +
+      ggplot2::geom_jitter(
+        ggplot2::aes(color = Plant_Condition),
+        width = 0.15,
+        size = 2,
+        alpha = 0.7,
+        show.legend = FALSE
+      ) +
+      ggplot2::scale_fill_manual(values = col_PC, drop = FALSE) +
+      ggplot2::scale_color_manual(values = col_PC, drop = FALSE) +
+      ggplot2::annotate("text", x = 1.5, y = ymax_ch * 1.05, label = sig_ch, size = 6) +
+      ggplot2::labs(
+        title = glue::glue("Alpha diversity - Chao1 index ({system_lab}, {region_lab}, {marker_lab})"),
+        x = "Plant condition",
+        y = "Chao1 richness"
+      ) +
+      ggplot2::theme_bw(base_size = 12) +
+      ggplot2::theme(
+        axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+        legend.position = "none"
+      )
+
+    plots_alpha_shannon_ds[[nm]] <- p_sh
+    plots_alpha_chao_ds[[nm]] <- p_ch
+
+    info <- analysis_info[[nm]]
+    safe_save_plot(file.path(info$out_root, "Figures", glue::glue("Alpha_Shannon_{nm}.pdf")), p_sh, 6, 4)
+    safe_save_plot(file.path(info$out_root, "Figures", glue::glue("Alpha_Chao1_{nm}.pdf")), p_ch, 6, 4)
+  }
+}
+
+alpha_stats_all <- safe_bind_rows(alpha_stats_all)
+alpha_stats_all
+
+plot_alpha_multipanel <- function(df, marker_label, index_label, title_label, y_label, out_name, root_dir) {
+  df_use <- df %>%
+    dplyr::filter(Marker == marker_label, !is.na(Plant_Condition))
+
+  if (nrow(df_use) == 0) return(NULL)
+
+  ann <- df_use %>%
+    dplyr::group_by(System, Region) %>%
+    dplyr::group_modify(function(.x, .y) {
+      p_val <- safe_lm_pvalue(.x, index_label, "Plant_Condition")
+      y_val <- max(.x[[index_label]], na.rm = TRUE) * 1.05
+      tibble::tibble(
+        y = y_val,
+        p = p_val,
+        SignifCode = ifelse(is.na(p_val), "NA", ifelse(p_val < 0.05, "**", "NS"))
+      )
+    }) %>%
+    dplyr::ungroup()
+
+  p <- ggplot2::ggplot(
+    df_use,
+    ggplot2::aes(
+      x = Plant_Condition,
+      y = .data[[index_label]],
+      fill = Plant_Condition
+    )
+  ) +
+    ggplot2::geom_boxplot(alpha = 0.8, outlier.shape = NA) +
+    ggplot2::geom_jitter(
+      ggplot2::aes(color = Plant_Condition),
+      width = 0.15,
+      size = 2,
+      alpha = 0.7,
+      show.legend = FALSE
+    ) +
+    ggplot2::facet_grid(System ~ Region, scales = "free_y") +
+    ggplot2::geom_text(
+      data = ann,
+      ggplot2::aes(x = 1.5, y = y, label = SignifCode),
+      inherit.aes = FALSE,
+      size = 5
+    ) +
+    ggplot2::scale_fill_manual(values = col_PC, drop = FALSE) +
+    ggplot2::scale_color_manual(values = col_PC, drop = FALSE) +
+    ggplot2::labs(title = title_label, x = NULL, y = y_label) +
+    ggplot2::theme_bw(base_size = 12) +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+      legend.position = "none"
+    )
+
+  dir.create(root_dir, recursive = TRUE, showWarnings = FALSE)
+  safe_save_plot(file.path(root_dir, out_name), p, 9, 6)
+  p
+}
+
+multi_root_16S <- file.path(proj_dir, params$out_root_16S, "Multipanels", params$analysis_subdir)
+multi_root_ITS <- file.path(proj_dir, params$out_root_ITS, "Multipanels", params$analysis_subdir)
+
+if (nrow(alpha_all) > 0) {
+  p_alpha_16S_sh <- plot_alpha_multipanel(
+    alpha_all, "16S", "Shannon",
+    "Alpha diversity - Shannon index (16S datasets)",
+    "Shannon index",
+    "Alpha_Shannon_16S_AllSystems.pdf",
+    multi_root_16S
+  )
+
+  p_alpha_16S_ch <- plot_alpha_multipanel(
+    alpha_all, "16S", "Chao1",
+    "Alpha diversity - Chao1 index (16S datasets)",
+    "Chao1 richness",
+    "Alpha_Chao1_16S_AllSystems.pdf",
+    multi_root_16S
+  )
+
+  p_alpha_ITS_sh <- plot_alpha_multipanel(
+    alpha_all, "ITS", "Shannon",
+    "Alpha diversity - Shannon index (ITS datasets)",
+    "Shannon index",
+    "Alpha_Shannon_ITS_AllSystems.pdf",
+    multi_root_ITS
+  )
+
+  p_alpha_ITS_ch <- plot_alpha_multipanel(
+    alpha_all, "ITS", "Chao1",
+    "Alpha diversity - Chao1 index (ITS datasets)",
+    "Chao1 richness",
+    "Alpha_Chao1_ITS_AllSystems.pdf",
+    multi_root_ITS
+  )
+
+  saveRDS(alpha_all, file.path(proj_dir, "AlphaDiversity_All_Microbiome_Datasets.rds"))
+}
+
+if (nrow(alpha_stats_all) > 0) {
+  for (nm in unique(alpha_stats_all$Dataset)) {
+    if (!nm %in% names(analysis_info)) next
+    info <- analysis_info[[nm]]
+    out_tbl <- alpha_stats_all %>% dplyr::filter(Dataset == nm)
+
+    openxlsx::write.xlsx(
+      out_tbl,
+      file.path(info$out_root, "Tables", glue::glue("AlphaDiversity_ANOVA_{nm}.xlsx")),
+      rowNames = FALSE
+    )
+  }
+}
+
+# ============================================================
+# 5) BETA DIVERSITY ANALYSIS
+# ============================================================
+beta_summary <- list()
+
+for (i in seq_len(nrow(datasets_valid))) {
+  ds <- datasets_valid[i, ]
+  analysis_root <- make_outdirs(ds, params$analysis_subdir)
+  fig_dir <- file.path(analysis_root, "Figures")
+  tab_dir <- file.path(analysis_root, "Tables")
+  rds_dir <- file.path(analysis_root, "RDS")
+
+  ps <- load_ps_object(ds, "ps_rarefied")
+  if (is.null(ps)) next
+
+  meta <- as.data.frame(phyloseq::sample_data(ps)) %>%
+    harmonize_state_var(state_var = state_var)
+
+  keep <- !is.na(meta[[state_var]])
+  ps <- phyloseq::prune_samples(keep, ps)
+
+  if (phyloseq::nsamples(ps) < 3) next
+
+  meta <- as.data.frame(phyloseq::sample_data(ps))
+  meta[[state_var]] <- droplevels(as.factor(meta[[state_var]]))
+
+  if (safe_group_count(meta[[state_var]]) < 2) next
+
+  phyloseq::sample_data(ps) <- phyloseq::sample_data(meta)
+
+  dist_methods <- if (ds$Marker == "16S") {
+    c("bray", "jaccard", "unifrac_unweighted", "unifrac_weighted")
+  } else {
+    c("bray", "jaccard")
+  }
+
+  perm_list <- list()
+  bd_anova_list <- list()
+  bd_full_list <- list()
+
+  for (dm in dist_methods) {
+    dist_obj <- tryCatch(
+      make_dist(ps, method = dm, gene_type = ds$Marker),
+      error = function(e) NULL
+    )
+
+    if (is.null(dist_obj)) next
+
+    ord <- pcoa_df_local(dist_obj, meta_df = meta)
+    df_ord <- ord$df
+
+    p <- ggplot2::ggplot(df_ord, ggplot2::aes(x = PCoA1, y = PCoA2, color = .data[[state_var]])) +
+      ggplot2::geom_point(size = 3, alpha = 0.9) +
+      ggplot2::labs(
+        title = glue::glue("{ds$dataset_name} - {dm}"),
+        x = glue::glue("PCoA1 ({ord$var1}%)"),
+        y = glue::glue("PCoA2 ({ord$var2}%)"),
+        color = "Plant condition"
+      ) +
+      ggplot2::scale_color_manual(values = col_PC, drop = TRUE) +
+      ggplot2::theme_bw(base_size = 12) +
+      ggplot2::theme(panel.grid = ggplot2::element_blank(), legend.position = "right")
+
+    safe_save_plot(file.path(fig_dir, glue::glue("PCoA_{ds$dataset_name}_{dm}.pdf")), p, 7, 5)
+    safe_save_plot(file.path(fig_dir, glue::glue("PCoA_{ds$dataset_name}_{dm}.png")), p, 7, 5)
+
+    perm_res <- run_permanova(dist_obj, meta_df = meta, state_var = state_var, nperm = 999)
+    bd_res <- run_betadisper(dist_obj, meta[[state_var]])
+
+    if (!is.null(perm_res)) perm_list[[dm]] <- perm_res
+    if (!is.null(bd_res) && !is.null(bd_res$anova)) bd_anova_list[[dm]] <- bd_res$anova
+    if (!is.null(bd_res)) bd_full_list[[dm]] <- bd_res
+  }
+
+  if (length(perm_list) > 0) {
+    wb_perm <- openxlsx::createWorkbook()
+    for (nm in names(perm_list)) {
+      sh <- substr(glue::glue("{ds$dataset_name}_{nm}"), 1, 31)
+      openxlsx::addWorksheet(wb_perm, sh)
+      openxlsx::writeData(
+        wb_perm,
+        sh,
+        as.data.frame(perm_list[[nm]]) %>%
+          tibble::rownames_to_column("Term")
+      )
+    }
+    openxlsx::saveWorkbook(
+      wb_perm,
+      file.path(tab_dir, glue::glue("PERMANOVA_results_{ds$dataset_name}.xlsx")),
+      overwrite = TRUE
+    )
+  }
+
+  if (length(bd_anova_list) > 0) {
+    wb_bd <- openxlsx::createWorkbook()
+    for (nm in names(bd_anova_list)) {
+      sh <- substr(glue::glue("{ds$dataset_name}_{nm}"), 1, 31)
+      openxlsx::addWorksheet(wb_bd, sh)
+      openxlsx::writeData(
+        wb_bd,
+        sh,
+        as.data.frame(bd_anova_list[[nm]]) %>%
+          tibble::rownames_to_column("Term")
+      )
+    }
+    openxlsx::saveWorkbook(
+      wb_bd,
+      file.path(tab_dir, glue::glue("Betadisper_ANOVA_{ds$dataset_name}.xlsx")),
+      overwrite = TRUE
+    )
+  }
+
+  if (length(bd_full_list) > 0) {
+    saveRDS(bd_full_list, file.path(rds_dir, glue::glue("Betadisper_full_lists_{ds$dataset_name}.rds")))
+  }
+
+  beta_summary[[ds$dataset_name]] <- tibble::tibble(
+    Dataset = ds$dataset_name,
+    System = ds$system,
+    Region = ds$Region,
+    Marker = ds$Marker,
+    Domain = ds$Domain,
+    Distances_run = paste(names(perm_list), collapse = ", ")
+  )
+}
+
+beta_summary <- safe_bind_rows(beta_summary)
+beta_summary
+
+beta_bray_all <- purrr::map(seq_len(nrow(datasets_valid)), function(i) {
+  ds <- datasets_valid[i, ]
+  ps <- load_ps_object(ds, "ps_rarefied")
+  if (is.null(ps)) return(NULL)
+
+  meta <- as.data.frame(phyloseq::sample_data(ps)) %>%
+    harmonize_state_var(state_var = state_var)
+
+  keep <- !is.na(meta[[state_var]])
+  ps <- phyloseq::prune_samples(keep, ps)
+
+  if (phyloseq::nsamples(ps) < 3) return(NULL)
+
+  meta <- as.data.frame(phyloseq::sample_data(ps))
+  if (safe_group_count(meta[[state_var]]) < 2) return(NULL)
+
+  phyloseq::sample_data(ps) <- phyloseq::sample_data(meta)
+
+  dist_obj <- tryCatch(
+    make_dist(ps, method = "bray", gene_type = ds$Marker),
+    error = function(e) NULL
+  )
+
+  if (is.null(dist_obj)) return(NULL)
+
+  ord <- pcoa_df_local(dist_obj, meta_df = meta)
+
+  ord$df %>%
+    dplyr::mutate(
+      Dataset = ds$dataset_name,
+      System = ds$system,
+      Region = ds$Region,
+      Marker = ds$Marker,
+      Domain = ds$Domain,
+      Plant_Condition = .data[[state_var]],
+      Var_PC1 = ord$var1,
+      Var_PC2 = ord$var2
+    )
+}) %>%
+  safe_bind_rows()
+
+plot_beta_bray_marker <- function(df_beta, marker_label, out_root, out_name) {
+  df_marker <- df_beta %>%
+    dplyr::filter(Marker == marker_label, !is.na(Plant_Condition))
+
+  if (nrow(df_marker) == 0) return(NULL)
+
+  p <- ggplot2::ggplot(df_marker, ggplot2::aes(x = PCoA1, y = PCoA2, color = Plant_Condition)) +
+    ggplot2::geom_point(size = 3, alpha = 0.9) +
+    ggplot2::facet_grid(System ~ Region) +
+    ggplot2::scale_color_manual(values = col_PC, drop = TRUE) +
+    ggplot2::labs(
+      title = glue::glue("PCoA Bray-Curtis - {marker_label} datasets"),
+      x = "PCoA1",
+      y = "PCoA2",
+      color = "Plant condition"
+    ) +
+    ggplot2::theme_bw(base_size = 12) +
+    ggplot2::theme(
+      strip.text = ggplot2::element_text(face = "bold"),
+      panel.grid.major = ggplot2::element_line(color = "grey90"),
+      panel.grid.minor = ggplot2::element_blank()
+    )
+
+  dir.create(out_root, recursive = TRUE, showWarnings = FALSE)
+  safe_save_plot(file.path(out_root, out_name), p, 10, 6)
+  p
+}
+
+if (nrow(beta_bray_all) > 0) {
+  p_beta_16S <- plot_beta_bray_marker(
+    beta_bray_all,
+    "16S",
+    file.path(proj_dir, params$out_root_16S, "Multipanels"),
+    "Beta_PCoA_Bray_16S_AllSystems.pdf"
+  )
+
+  p_beta_ITS <- plot_beta_bray_marker(
+    beta_bray_all,
+    "ITS",
+    file.path(proj_dir, params$out_root_ITS, "Multipanels"),
+    "Beta_PCoA_Bray_ITS_AllSystems.pdf"
+  )
+}
+
+# ============================================================
+# 6) RELATIVE ABUNDANCE PROFILING
+# ============================================================
+find_ps_counts <- function(ds_row) {
+  file.path(
+    proj_dir,
+    ds_row$out_root_base,
+    ds_row$dataset_name,
+    params$filtering_subdir,
+    "RDS",
+    glue::glue("ps_counts_{ds_row$dataset_name}.rds")
+  )
+}
+
+make_stacked_bar <- function(ds_row, level = "Order", top_n = params$top_n) {
+  ps_path <- find_ps_counts(ds_row)
+  if (!file.exists(ps_path)) return(NULL)
+
+  ps0 <- tryCatch(readRDS(ps_path), error = function(e) NULL)
+  if (is.null(ps0)) return(NULL)
+
+  sd0 <- tryCatch(
+    as(phyloseq::sample_data(ps0), "data.frame") %>%
+      harmonize_state_var(state_var = state_var),
+    error = function(e) NULL
+  )
+  if (is.null(sd0) || nrow(sd0) == 0) return(NULL)
+
+  phyloseq::sample_data(ps0) <- phyloseq::sample_data(sd0)
+
+  keep <- rownames(sd0)[!is.na(sd0[[state_var]])]
+  if (length(keep) == 0) return(NULL)
+
+  ps_sub <- phyloseq::prune_samples(keep, ps0)
+  ps_sub <- phyloseq::prune_taxa(phyloseq::taxa_sums(ps_sub) > 0, ps_sub)
+
+  if (phyloseq::nsamples(ps_sub) < 2 || phyloseq::ntaxa(ps_sub) == 0) return(NULL)
+
+  tax_tab0 <- tryCatch(as.matrix(phyloseq::tax_table(ps_sub)), error = function(e) NULL)
+  if (is.null(tax_tab0)) return(NULL)
+  if (!level %in% colnames(tax_tab0)) return(NULL)
+
+  ps_rel <- tryCatch(microbiome::transform(ps_sub, "compositional"), error = function(e) NULL)
+  if (is.null(ps_rel)) return(NULL)
+
+  psl <- tryCatch(
+    phyloseq::tax_glom(ps_rel, taxrank = level, NArm = TRUE),
+    error = function(e) NULL
+  )
+  if (is.null(psl) || phyloseq::ntaxa(psl) == 0) return(NULL)
+
+  OT <- tryCatch(as(phyloseq::otu_table(psl), "matrix"), error = function(e) NULL)
+  if (is.null(OT)) return(NULL)
+  if (!phyloseq::taxa_are_rows(psl)) OT <- t(OT)
+
+  tax_mat <- tryCatch(as.matrix(phyloseq::tax_table(psl)), error = function(e) NULL)
+  if (is.null(tax_mat)) return(NULL)
+  if (!level %in% colnames(tax_mat)) return(NULL)
+
+  tax_vec <- tax_mat[, level]
+  nm_clean <- process_tax_labels(tax_vec, level = level) %>%
+    stringr::str_to_title()
+
+  df_lv <- as.data.frame(OT) %>%
+    tibble::rownames_to_column("Taxon_raw") %>%
+    dplyr::mutate(Taxon = nm_clean) %>%
+    dplyr::filter(!is.na(Taxon), Taxon != "") %>%
+    dplyr::select(-Taxon_raw) %>%
+    tidyr::pivot_longer(
+      cols = -Taxon,
+      names_to = "SampleID",
+      values_to = "RelAbund"
+    )
+
+  if (nrow(df_lv) == 0) return(NULL)
+
+  sd_ra <- tryCatch(
+    as(phyloseq::sample_data(psl), "data.frame") %>%
+      tibble::rownames_to_column("SampleID") %>%
+      harmonize_state_var(state_var = state_var),
+    error = function(e) NULL
+  )
+  if (is.null(sd_ra) || nrow(sd_ra) == 0) return(NULL)
+
+  df_lv <- df_lv %>%
+    dplyr::left_join(sd_ra[, c("SampleID", state_var)], by = "SampleID") %>%
+    dplyr::filter(!is.na(.data[[state_var]]))
+
+  if (nrow(df_lv) == 0) return(NULL)
+
+  top_taxa <- df_lv %>%
+    dplyr::group_by(Taxon) %>%
+    dplyr::summarise(mean_rel = mean(RelAbund, na.rm = TRUE), .groups = "drop") %>%
+    dplyr::arrange(dplyr::desc(mean_rel)) %>%
+    dplyr::slice_head(n = top_n) %>%
+    dplyr::pull(Taxon)
+
+  if (length(top_taxa) == 0) return(NULL)
+
+  df_bar <- df_lv %>%
+    dplyr::mutate(
+      Taxon_group = dplyr::if_else(Taxon %in% top_taxa, Taxon, "Others")
+    ) %>%
+    dplyr::group_by(.data[[state_var]], Taxon_group) %>%
+    dplyr::summarise(RelAbund = mean(RelAbund, na.rm = TRUE), .groups = "drop")
+
+  if (nrow(df_bar) == 0) return(NULL)
+
+  df_bar[[state_var]] <- factor(
+    df_bar[[state_var]],
+    levels = c("Healthy_Plant", "Diseased_Plant")
+  )
+
+  cond_levels <- c("Healthy_Plant", "Diseased_Plant")
+
+  if (!any(df_bar$Taxon_group == "Others")) {
+    df_bar <- dplyr::bind_rows(
+      df_bar,
+      tibble::tibble(
+        !!rlang::sym(state_var) := cond_levels,
+        Taxon_group = "Others",
+        RelAbund = 0
+      )
+    )
+  }
+
+  df_bar <- df_bar %>%
+    dplyr::group_by(.data[[state_var]]) %>%
+    dplyr::mutate(
+      total_rel = sum(RelAbund, na.rm = TRUE),
+      RelAbund = dplyr::if_else(total_rel > 0, RelAbund / total_rel, 0)
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(-total_rel)
+
+  tax_order <- df_bar %>%
+    dplyr::group_by(Taxon_group) %>%
+    dplyr::summarise(mean_rel = mean(RelAbund, na.rm = TRUE), .groups = "drop") %>%
+    dplyr::arrange(dplyr::desc(Taxon_group != "Others"), dplyr::desc(mean_rel)) %>%
+    dplyr::pull(Taxon_group)
+
+  if ("Others" %in% tax_order) {
+    tax_order <- c(setdiff(tax_order, "Others"), "Others")
+  }
+
+  df_bar$Taxon_group <- factor(df_bar$Taxon_group, levels = tax_order)
+
+  levs_tax <- levels(df_bar$Taxon_group)
+  cols_use <- get_global_palette(ds_row$Marker, level, levs_tax)
+  if ("Others" %in% levs_tax) cols_use["Others"] <- "#B0B0B0"
+
+  p <- ggplot2::ggplot(
+    df_bar,
+    ggplot2::aes(x = .data[[state_var]], y = RelAbund, fill = Taxon_group)
+  ) +
+    ggplot2::geom_bar(stat = "identity", width = 0.75) +
+    ggplot2::scale_fill_manual(values = cols_use, drop = FALSE, breaks = levs_tax) +
+    ggplot2::scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    ggplot2::labs(
+      title = glue::glue("{ds_row$system} - {ds_row$Region} - {ds_row$Marker} - {level}"),
+      x = NULL,
+      y = "Relative abundance (%)",
+      fill = level
+    ) +
+    theme_pub(base_size = 11)
+
+  list(plot = p, table = df_bar)
+}
+
+relabund_tables <- list()
+
+for (i in seq_len(nrow(datasets_valid))) {
+  ds <- datasets_valid[i, ]
+
+  for (lev in params$tax_levels) {
+    res <- tryCatch(
+      make_stacked_bar(ds, level = lev, top_n = params$top_n),
+      error = function(e) {
+        message("Relative abundance skipped for ", ds$dataset_name, " / ", lev, ": ", e$message)
+        NULL
+      }
+    )
+
+    if (is.null(res)) next
+
+    out_dir <- file.path(
+      proj_dir,
+      ds$out_root_base,
+      "Multipanels",
+      params$analysis_subdir,
+      "01_Individual"
+    )
+
+    dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+    safe_save_plot(
+      file.path(out_dir, glue::glue("StackedBar_{ds$dataset_name}_{lev}.pdf")),
+      res$plot,
+      7.5, 5.2
+    )
+
+    safe_save_plot(
+      file.path(out_dir, glue::glue("StackedBar_{ds$dataset_name}_{lev}.png")),
+      res$plot,
+      7.5, 5.2
+    )
+
+    relabund_tables[[paste(ds$dataset_name, lev, sep = "_")]] <- res$table %>%
+      dplyr::mutate(
+        Dataset = ds$dataset_name,
+        System = ds$system,
+        Region = ds$Region,
+        Marker = ds$Marker,
+        Domain = ds$Domain,
+        Level = lev,
+        RelAbund_percent = RelAbund * 100
+      )
+  }
+}
+
+relabund_tables <- safe_bind_rows(relabund_tables)
+relabund_tables
+
+if (nrow(relabund_tables) > 0) {
+  openxlsx::write.xlsx(
+    relabund_tables %>% dplyr::filter(Marker == "16S"),
+    file.path(proj_dir, "RelAbund_Percentages_16S_AllSystems.xlsx"),
+    overwrite = TRUE
+  )
+
+  openxlsx::write.xlsx(
+    relabund_tables %>% dplyr::filter(Marker == "ITS"),
+    file.path(proj_dir, "RelAbund_Percentages_ITS_AllSystems.xlsx"),
+    overwrite = TRUE
+  )
+}
+
+# ============================================================
+# 7) DIFFERENTIAL ABUNDANCE ANALYSIS
+# ============================================================
+da_results_all <- tibble::tibble()
+
+if (requireNamespace("ANCOMBC", quietly = TRUE)) {
+  library(ANCOMBC)
+
+  datasets_da <- tibble::tribble(
+    ~dataset_name,       ~Region,     ~Marker, ~Domain,    ~out_root_base,
+    "Caldas_Endo16S",    "Caldas",    "16S",   "Bacteria", params$da_out_root_16S,
+    "Risaralda_Endo16S", "Risaralda", "16S",   "Bacteria", params$da_out_root_16S
+  )
+
+  build_ps_counts_path <- function(ds_row) {
+    file.path(
+      proj_dir,
+      ds_row$out_root_base,
+      ds_row$dataset_name,
+      params$filtering_subdir,
+      "RDS",
+      glue::glue("ps_counts_{ds_row$dataset_name}.rds")
+    )
+  }
+
+  standardize_condition <- function(x) {
+    x <- trimws(as.character(x))
+    x <- stringr::str_to_lower(x)
+    dplyr::case_when(
+      x %in% c("healthy", "healthy_plant", "healthy plant", "sano", "sana") ~ "Healthy_Plant",
+      x %in% c("diseased", "diseased_plant", "diseased plant", "enfermo", "enferma") ~ "Diseased_Plant",
+      TRUE ~ NA_character_
+    )
+  }
+
+  harmonize_metadata_da <- function(ps, condition_col = "Condition", tissue_col = "Plant_Tissues") {
+    meta <- as.data.frame(phyloseq::sample_data(ps))
+
+    if (!"Plant_Condition" %in% colnames(meta)) {
+      if (condition_col %in% colnames(meta)) {
+        meta$Plant_Condition <- standardize_condition(meta[[condition_col]])
+      } else {
+        stop("No Plant_Condition or Condition column found in metadata.")
+      }
+    } else {
+      meta$Plant_Condition <- standardize_condition(meta$Plant_Condition)
+    }
+
+    if (!tissue_col %in% colnames(meta)) {
+      stop(glue::glue("Column '{tissue_col}' not found in metadata."))
+    }
+
+    meta$Plant_Condition <- factor(
+      meta$Plant_Condition,
+      levels = c("Healthy_Plant", "Diseased_Plant")
+    )
+    meta$Plant_Tissues <- as.factor(meta[[tissue_col]])
+    meta$State <- meta$Plant_Condition
+
+    phyloseq::sample_data(ps) <- phyloseq::sample_data(meta)
+    ps
+  }
+
+  refresh_phyloseq <- function(ps_in) {
+    otu <- as(phyloseq::otu_table(ps_in), "matrix")
+    if (!phyloseq::taxa_are_rows(ps_in)) otu <- t(otu)
+    otu <- round(otu)
+    mode(otu) <- "numeric"
+
+    meta <- phyloseq::sample_data(ps_in)
+    tax  <- phyloseq::tax_table(ps_in, errorIfNULL = FALSE)
+    tree <- phyloseq::phy_tree(ps_in, errorIfNULL = FALSE)
+
+    args <- list(
+      phyloseq::otu_table(otu, taxa_are_rows = TRUE),
+      phyloseq::sample_data(as(meta, "data.frame"))
+    )
+
+    if (!is.null(tax))  args <- c(args, list(phyloseq::tax_table(as.matrix(tax))))
+    if (!is.null(tree)) args <- c(args, list(tree))
+
+    do.call(phyloseq::phyloseq, args)
+  }
+
+  run_ancombc2_tissue <- function(ps, tissue_name, tax_level = "Genus", alpha = 0.05, p_adj = "fdr") {
+    meta <- as.data.frame(phyloseq::sample_data(ps))
+    keep_samples <- rownames(meta)[meta$Plant_Tissues == tissue_name & !is.na(meta$Plant_Condition)]
+
+    ps_sub <- phyloseq::prune_samples(keep_samples, ps)
+    ps_sub <- phyloseq::prune_samples(phyloseq::sample_sums(ps_sub) > 0, ps_sub)
+
+    if (phyloseq::nsamples(ps_sub) < 3 || phyloseq::ntaxa(ps_sub) == 0) return(NULL)
+    if (safe_group_count(as.data.frame(phyloseq::sample_data(ps_sub))$State) < 2) return(NULL)
+
+    ps_glom <- phyloseq::tax_glom(ps_sub, taxrank = tax_level, NArm = TRUE)
+    ps_glom <- phyloseq::prune_taxa(phyloseq::taxa_sums(ps_glom) > 0, ps_glom)
+    if (phyloseq::ntaxa(ps_glom) == 0) return(NULL)
+
+    ps_glom <- refresh_phyloseq(ps_glom)
+
+    fit <- tryCatch(
+      ANCOMBC::ancombc2(
+        data         = ps_glom,
+        fix_formula  = "State",
+        group        = NULL,
+        p_adj_method = p_adj,
+        prv_cut      = 0,
+        lib_cut      = 0,
+        struc_zero   = FALSE,
+        neg_lb       = FALSE,
+        alpha        = alpha,
+        global       = FALSE,
+        pairwise     = FALSE,
+        dunnet       = FALSE,
+        trend        = FALSE,
+        verbose      = FALSE
+      ),
+      error = function(e) NULL
+    )
+
+    if (is.null(fit)) return(NULL)
+
+    res <- fit$res
+    if (is.null(res) || !nrow(res)) return(NULL)
+
+    lfc_cols <- grep("^lfc_", colnames(res), value = TRUE)
+    if (!length(lfc_cols)) return(NULL)
+
+    lfc_col <- lfc_cols[1]
+    suffix  <- sub("^lfc_", "", lfc_col)
+    q_col   <- paste0("q_", suffix)
+
+    tax_mat <- as.matrix(phyloseq::tax_table(ps_glom))
+    tax_labels <- if (tax_level %in% colnames(tax_mat)) {
+      as.character(tax_mat[, tax_level])
+    } else {
+      rownames(tax_mat)
+    }
+
+    tax_labels[is.na(tax_labels) | tax_labels == ""] <- paste0("Unclassified_", tax_level)
+
+    tibble::tibble(
+      Taxon  = tax_labels,
+      lfc    = res[[lfc_col]],
+      q      = if (q_col %in% colnames(res)) res[[q_col]] else NA_real_,
+      Tissue = tissue_name,
+      Level  = tax_level
+    ) %>%
+      dplyr::filter(!is.na(lfc)) %>%
+      dplyr::arrange(q)
+  }
+
+  tissue_order <- c("Corm", "Leaf", "Mid_Rib")
+  tax_levels_da <- c("Order", "Family", params$da_tax_level)
+  da_results <- list()
+
+  for (i in seq_len(nrow(datasets_da))) {
+    ds <- datasets_da[i, ]
+    ps_path <- build_ps_counts_path(ds)
+    if (!file.exists(ps_path)) next
+
+    ps <- readRDS(ps_path)
+    ps <- tryCatch(harmonize_metadata_da(ps), error = function(e) NULL)
+    if (is.null(ps)) next
+
+    for (lev in tax_levels_da) {
+      for (tiss in tissue_order) {
+        res <- tryCatch(
+          run_ancombc2_tissue(
+            ps = ps,
+            tissue_name = tiss,
+            tax_level = lev,
+            alpha = params$da_alpha,
+            p_adj = params$da_p_adjust
+          ),
+          error = function(e) NULL
+        )
+
+        if (!is.null(res) && nrow(res) > 0) {
+          res$Dataset <- ds$dataset_name
+          res$Region  <- ds$Region
+          da_results[[paste(ds$dataset_name, lev, tiss, sep = "_")]] <- res
+        }
+      }
+    }
+  }
+
+  da_results_all <- safe_bind_rows(da_results)
+  da_results_all
+
+  if (nrow(da_results_all) > 0) {
+    out_xlsx <- file.path(proj_dir, "DifferentialAbundance_ANCOMBC2_Endophytes16S.xlsx")
+    openxlsx::write.xlsx(split(da_results_all, da_results_all$Level), out_xlsx, overwrite = TRUE)
+
+    plot_da_top_taxa <- function(df, dataset_name, tissue_name, tax_level = "Genus", top_n = 12) {
+      df_plot <- df %>%
+        dplyr::filter(
+          Dataset == dataset_name,
+          Tissue == tissue_name,
+          Level == tax_level
+        ) %>%
+        dplyr::filter(!is.na(q)) %>%
+        dplyr::arrange(q) %>%
+        dplyr::slice_head(n = top_n) %>%
+        dplyr::mutate(
+          Enrichment = dplyr::case_when(
+            lfc > 0  ~ "Diseased-enriched",
+            lfc < 0  ~ "Healthy-enriched",
+            TRUE     ~ "Neutral"
+          ),
+          Taxon = factor(Taxon, levels = rev(unique(Taxon)))
+        )
+
+      if (nrow(df_plot) == 0) {
+        return(ggplot2::ggplot() + ggplot2::theme_void() + ggplot2::ggtitle("No significant taxa available"))
+      }
+
+      ggplot2::ggplot(df_plot, ggplot2::aes(x = Taxon, y = lfc, fill = Enrichment)) +
+        ggplot2::geom_col(width = 0.8) +
+        ggplot2::coord_flip() +
+        ggplot2::labs(
+          title = glue::glue("Differential abundance ({dataset_name} - {tissue_name}, {tax_level})"),
+          x = NULL,
+          y = "Log fold change"
+        ) +
+        ggplot2::scale_fill_manual(
+          values = c(
+            "Healthy-enriched"  = "#00BFC4",
+            "Diseased-enriched" = "#F8766D",
+            "Neutral"           = "grey70"
+          )
+        ) +
+        ggplot2::theme_bw(base_size = 12) +
+        ggplot2::theme(
+          legend.title = ggplot2::element_blank(),
+          plot.title = ggplot2::element_text(face = "bold")
+        )
+    }
+
+    p_da_example <- plot_da_top_taxa(
+      da_results_all,
+      dataset_name = "Caldas_Endo16S",
+      tissue_name = "Corm",
+      tax_level = "Genus",
+      top_n = params$da_top_n_plot
+    )
+
+    print(p_da_example)
+  }
+} else {
+  message("Package ANCOMBC not installed. Differential abundance section skipped.")
+}
+
+# ============================================================
+# 8) FINAL TABLES
+# ============================================================
+filtering_summaries
+alpha_stats_all
+beta_summary
+relabund_tables
+da_results_all
+```
+
+# Differential Abundance Notes
+
+- Differential abundance was assessed using ANCOM-BC2, suitable for compositional microbiome count data.
+- The comparison shown here focuses on Healthy_Plant vs Diseased_Plant.
+- Analyses were performed separately by plant tissue to preserve biological interpretability.
+- Taxa were evaluated at Order, Family, and Genus levels.
+- Output tables and figures are suitable for manuscript preparation, technical reporting, and consulting portfolios.
+
+# Final Deliverables
+
+This workflow generates outputs suitable for research projects, manuscripts, and consulting reports, including:
+
+- Filtered and rarefied phyloseq objects
+- Alpha diversity plots and ANOVA tables
+- Beta diversity PCoA plots and PERMANOVA tables
+- Betadisper outputs
+- Relative abundance figures
+- Publication-ready PDF multipanels
+- Excel summary tables for downstream reporting
+
+# Final Remarks
+
+This report documents a complete and reproducible microbiome analysis framework integrating QIIME2-derived inputs with R-based ecological and statistical analyses across soil and plant-associated datasets. The workflow is suitable for bacterial and fungal community studies based on 16S rRNA and ITS amplicon sequencing and provides outputs that can be used for scientific manuscripts, technical consulting portfolios, and collaborative microbiome projects.
+
+The framework combines standardized preprocessing, alpha and beta diversity analysis, ecological statistics, relative abundance profiling, and publication-ready figure generation in a modular structure that can be extended to additional microbiome datasets with minimal modification.
